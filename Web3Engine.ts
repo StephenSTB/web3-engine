@@ -2,13 +2,20 @@ import Web3 from "web3";
 
 import bip39 from "bip39";
 
-import HDKey from "hdkey";
+import {BIP32Factory} from 'bip32';
+
+//import HDKey from "hdkey";
+
+//import ethUtil from 'ethereumjs-util';
+
+import * as ecc from 'tiny-secp256k1';
+///import hdkey from 'ethereumjs-wallet/dist/hdkey.js';
 
 import fs from "fs";
 
 import { URL } from 'url';
 
-import { Providers, DeployedContracts} from "../web3-data"
+import { Providers, DeployedContracts, Provider} from "../web3-data"
 
 import { green, yellow, red, gray } from "../web3-data/functions/ConsoleColors.js"
 
@@ -22,7 +29,10 @@ import { Wallet } from "web3-eth-accounts"
 
 //import { TruffleContract } from "../web3-data/interfaces/TruffleContract";
 
-import eccrypto from "eccrypto"
+//import eccrypto from "eccrypto"
+//import { error } from "console";
+
+import { encrypt, decrypt } from "eciesjs"
 
 const __dirname = new URL('.', import.meta.url).pathname;
 
@@ -67,12 +77,6 @@ interface Contracts{
     [key: string] : any;
 }
 
-export interface EncryptedMessage{
-    iv: Buffer
-    ephemPublicKey: Buffer,
-    ciphertext: Buffer,
-    mac: Buffer
-}
 
 export class Web3Engine implements Engine{
 
@@ -153,14 +157,32 @@ export class Web3Engine implements Engine{
 
     #initWallet = async (defaultAccount ?: number) =>{
         let seed = bip39.mnemonicToSeedSync(this.mnemonic);
-        let hdkey = HDKey.fromMasterSeed(seed);
+
+        //console.log(seed)
+
+        //console.log(hdkey.fromMasterSeed)
+        //let hdkey = HDKey.fromMasterSeed(seed);
+        // Create a BIP32 factory
+        const bip32Factory = BIP32Factory(ecc);
+        let seedU = new Uint8Array(seed)
+        let node = bip32Factory.fromSeed(seedU)
+        //let derivedNode: BIP32Interface =  await node.derivePath("m/44'/60'/0'/0/0");
+        //console.log((Buffer.from(derivedNode.privateKey as Uint8Array)).toString('hex'))
         let privateKeys = []
         for(let i = 0; i < 10; i ++){
-            let key = hdkey.derive("m/44'/60'/0'/0/" + i.toString());
-            privateKeys.push("0x" + key.privateKey.toString('hex'));
-            this.publicKeys.push(key.publicKey.toString('hex'));   
+            const derivednode = node.derivePath("m/44'/60'/0'/0/" + i);
+            const privateKey = (Buffer.from(derivednode.privateKey as Uint8Array)).toString('hex')
+            //const publicKey = ecc.publicKeyCreate(privateKeyBuffer);
+            //console.log(privateKey)
+            //let key: any = hdwallet.derivePath("m/44'/60'/0'/0/" + i).getWallet() //hdkey.derive("m/44'/60'/0'/0/" + i.toString());
+            //key = key.getPrivateKey();
+            privateKeys.push("0x" + privateKey); //"0x" + key.privateKey.toString('hex')
+
+            //this.publicKeys.push(d);   
+            this.publicKeys.push("0x" + (Buffer.from(derivednode.publicKey as Uint8Array)).toString('hex'))
         }
         //console.log(privateKeys)
+        
         for(var n of this.networks){
             
             let web3 = this.web3Instances[n].web3;
@@ -236,7 +258,7 @@ export class Web3Engine implements Engine{
         
         //fs.writeFileSync("./webpage/src/modules/data/Deployed_Contracts.json", JSON.stringify(deployedContracts, null, 4));
     }
-    /*
+    
     addProvider = async (network: string, provider : Provider) =>{
         
         this.web3Instances[network] = {
@@ -262,26 +284,37 @@ export class Web3Engine implements Engine{
             fs?.writeFileSync(__dirname + "../web3-data/networks/Providers.json", JSON.stringify(this.providers, null, 4));
         }
 
-    }*/
-
-    
-
-    encrypt = async (publicKey: Buffer , msg: string): Promise<EncryptedMessage> => {
-        let encrypted = await eccrypto.encrypt(Buffer.from("04" + publicKey.toString('hex'), "hex"), Buffer.from(msg))
-        console.log(green(), encrypted)
-        return encrypted as EncryptedMessage;
     }
 
-    
+    generateMnemonic = () =>{
+        return bip39.generateMnemonic()
+    }
 
-    decrypt = async (account: number, encrypted_message: EncryptedMessage) =>{
+    validateMnemonic = (mnemonic: string) =>{
+        return bip39.validateMnemonic(mnemonic)
+    }
 
+    encrypt = async (publicKey: Uint8Array, msg: string): Promise<Buffer> => {
+        
+        return encrypt(publicKey, new Uint8Array(Buffer.from(msg)));
+        /*
+        let encrypted = await eccrypto.encrypt(Buffer.from("04" + publicKey.toString('hex'), "hex"), Buffer.from(msg))
+        console.log(green(), encrypted)
+        return encrypted as EncryptedMessage;*/
+    }
+
+    decrypt = async (account: number, encrypted_message: Uint8Array) =>{
+
+        const privateKey = new Uint8Array(Buffer.from((this.defaultInstance?.wallet[account].privateKey)?.slice(2) as string, "hex"))
+
+        return decrypt(privateKey, encrypted_message)
+        /*
         const wallet = this.defaultInstance?.wallet as Wallet;
     
         const decrypt = (await eccrypto.decrypt(Buffer.from(wallet[account].privateKey.slice(2), 'hex'), encrypted_message)).toString()
 
         console.log(green(), decrypt)
-        return decrypt;
+        return decrypt;*/
     }
 
     // deploy contract , params
@@ -424,6 +457,27 @@ export class Web3Engine implements Engine{
         
         result.success = true;
         return result
+    }
+
+    async getGas(network: string, tx_params: any, contract: string, method: string, args: any) : Promise<any>{
+        let result = {success: false, error: "", gas: "" as any}
+        if(this.web3Instances[network] === undefined){
+            result.error = "invalid network given."
+            return result
+        }
+
+        let contractInstance = this.web3Instances[network].contracts[contract]
+
+        if(contractInstance === undefined){
+            result.error = `contract: ${contract} was not found on network: ${network}`
+            return result;
+        }
+        if(tx_params.gas === undefined){
+            tx_params.gas = await contractInstance.methods[method](...args).estimateGas({from: tx_params.from, value: tx_params.value})
+        }
+        result.gas = tx_params.gas * Number(await this.defaultInstance?.web3.eth.getGasPrice())
+        result.success = true;
+        return result;
     }
 
 }

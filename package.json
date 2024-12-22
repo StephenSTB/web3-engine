@@ -13,8 +13,6 @@
   "author": "StephenSTB",
   "license": "MIT",
   "dependencies": {
-    "@sb-labs/contract-factory": "file:../contract-factory/sb-labs-contract-factory-1.0.0.tgz",
-    "@sb-labs/web3-data": "file:../web3-data/sb-labs-web3-data-1.0.0.tgz",
     "bip39": "^3.0.4",
     "hdkey": "^2.0.1",
     "ts-node": "^10.9.1",
