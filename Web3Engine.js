@@ -171,7 +171,13 @@ export class Web3Engine {
         this.deployed[network][name] = { address, block };
         //console.log(this.deployed)
         if (!this.browser) {
-            fs?.writeFileSync(__dirname + "../web3-data/networks/DeployedContracts.json", JSON.stringify(this.deployed, null, 4));
+            try {
+                fs?.writeFileSync(__dirname + "../web3-data/networks/DeployedContracts.json", JSON.stringify(this.deployed, null, 4));
+                fs?.writeFileSync(__dirname + "../../../web3-data/networks/DeployedContracts.json", JSON.stringify(this.deployed, null, 4));
+            }
+            catch {
+                console.log(red(), "Couldn't write file");
+            }
         }
         //fs.writeFileSync("./webpage/src/modules/data/Deployed_Contracts.json", JSON.stringify(deployedContracts, null, 4));
     };
