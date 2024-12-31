@@ -16,7 +16,7 @@ import { green, yellow, red, gray } from "../web3-data/functions/ConsoleColors.j
 
 import { ContractFactoryV2 } from "../contract-factory-v2";
 
-import { Utils } from "web3-utils"
+import Web3Utils from "web3-utils"
 
 import { Wallet } from "web3-eth-accounts"
 
@@ -31,7 +31,7 @@ interface Engine{
     providers: object;
     deployed: DeployedContracts;
     web3Instances?: Web3Instances;
-    utils?: Utils;
+    utils?: any;
     publicKeys?: string[];    
     accounts: string[];
     contractFactory: any;
@@ -56,7 +56,7 @@ interface Web3Instances{
 
 interface Web3Instance{
     web3: Web3;
-    id: number;
+    id: bigint;
     wallet: Wallet;
     contracts: Contracts;
 }
@@ -76,7 +76,7 @@ export class Web3Engine implements Engine{
     deployed: DeployedContracts;
     web3Instances: Web3Instances;
     defaultInstance?: Web3Instance;
-    utils: Utils;
+    utils: any;
     publicKeys: string[];
     accounts: string[];
     defaultAccount?: string;
@@ -91,7 +91,7 @@ export class Web3Engine implements Engine{
        this.networks = args.networks;
        this.defaultNetwork = args.defaultNetwork;
        this.web3Instances = {};
-       this.utils = (Web3.utils as unknown) as Utils;
+       this.utils = Web3Utils;
        this.publicKeys = [];
        this.accounts = [];
        this.contractFactory = args.contractFactory;
@@ -120,7 +120,7 @@ export class Web3Engine implements Engine{
             console.log(gray(), this.providers[n].url)
             this.web3Instances[n] = {
                 web3: new Web3(this.providers[n].url),
-                id: 0,
+                id: BigInt(0),
                 wallet: {} as Wallet,
                 contracts: {}
             }
@@ -163,11 +163,12 @@ export class Web3Engine implements Engine{
             for(let i = 0; i < privateKeys.length; i++){
 
                 let account = await web3.eth.accounts.wallet.add(privateKeys[i]);
+                
                 if(i === defaultAccount){
-                    this.defaultAccount = account.address;
+                    this.defaultAccount = web3.eth.accounts.privateKeyToAccount(privateKeys[i]).address;
                 }
-                if(!this.accounts.includes(account.address)){
-                    this.accounts.push(account.address)
+                if(!this.accounts.includes(web3.eth.accounts.privateKeyToAccount(privateKeys[i]).address)){
+                    this.accounts.push(web3.eth.accounts.privateKeyToAccount(privateKeys[i]).address)
                 }
             }
             
@@ -222,7 +223,7 @@ export class Web3Engine implements Engine{
         
         this.web3Instances[network] = {
             web3: new Web3(provider.url),
-            id: 0,
+            id: BigInt(0),
             wallet: {} as Wallet,
             contracts: {}
         }
@@ -285,10 +286,10 @@ export class Web3Engine implements Engine{
             if( this.contractFactoryVersion === 2){
                 let contractInstance = this.contractFactory(web3)[contract];
 
-                let gas = await contractInstance.deploy({arguments: args, data: contractInstance.options.data as string}).estimateGas(tx_params)
-                console.log(yellow(), `${contract} deployment gas: ${gas}`)
+                console.log("here")
 
-                console.log()
+                let gas = await contractInstance.deploy({arguments: args}).estimateGas(tx_params)
+                console.log(yellow(), `${contract} deployment gas: ${gas}`)
 
                 tx_params.gas = gas;
 
@@ -400,7 +401,7 @@ export class Web3Engine implements Engine{
         if(tx_params.gas === undefined){
             tx_params.gas = await contractInstance.methods[method](...args).estimateGas({from: tx_params.from, value: tx_params.value})
         }
-        result.gas = tx_params.gas * Number(await this.defaultInstance?.web3.eth.getGasPrice())
+        result.gas = BigInt(tx_params.gas) * (await this.defaultInstance?.web3.eth.getGasPrice() as bigint)
         result.success = true;
         return result;
     }

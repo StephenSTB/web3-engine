@@ -114,11 +114,11 @@ const register = async () =>{
 
     await engine.sendTransaction(network, {from: account}, "PublicKeys", "register" , [sig?.signature])
 
-    let key = (await engine.sendTransaction(network, {from: account}, "PublicKeys", "SignKeys", [account], true)).transaction
+    let key = (await engine.sendTransaction(network, {from: account}, "PublicKeys", "SignKeys", [account], true))
 
-    console.log(green(), `Public Key: ${JSON.stringify(key)}`)
+    console.log(green(), `Public Key: ${key.transaction.r} ${key.transaction.s} ${key.transaction.v}  `)
 
-    let keybuf = new Uint8Array(Buffer.from("04" + ecrecover(toBuffer(enableHash), Number(key.v), toBuffer(key.r), toBuffer(key.s)).toString("hex"), "hex"))
+    let keybuf = new Uint8Array(Buffer.from("04" + ecrecover(toBuffer(enableHash), Number(key.transaction.v), toBuffer(key.transaction.r), toBuffer(key.transaction.s)).toString("hex"), "hex"))
 
     //let encrypted = await engine.encrypt(keybuf, "This is my message.") as EncryptedMessage
     //console.log(encrypted)
