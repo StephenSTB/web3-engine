@@ -1,16 +1,10 @@
 import Web3 from "web3";
 import bip39 from "bip39";
 import { BIP32Factory } from 'bip32';
-//import HDKey from "hdkey";
-//import ethUtil from 'ethereumjs-util';
 import * as ecc from 'tiny-secp256k1';
-///import hdkey from 'ethereumjs-wallet/dist/hdkey.js';
 import fs from "fs";
 import { URL } from 'url';
 import { green, yellow, red, gray } from "../web3-data/functions/ConsoleColors.js";
-//import { TruffleContract } from "../web3-data/interfaces/TruffleContract";
-//import eccrypto from "eccrypto"
-//import { error } from "console";
 import { encrypt, decrypt } from "eciesjs";
 const __dirname = new URL('.', import.meta.url).pathname;
 export class Web3Engine {
@@ -29,7 +23,6 @@ export class Web3Engine {
     contractFactory;
     contractFactoryVersion;
     constructor(args) {
-        //this.mnemonic = fs.readFileSync("./data/.secret").toString();
         this.browser = args.browser;
         this.mnemonic = args.mnemonic;
         this.providers = args.providers;
@@ -87,28 +80,16 @@ export class Web3Engine {
     };
     #initWallet = async (defaultAccount) => {
         let seed = bip39.mnemonicToSeedSync(this.mnemonic);
-        //console.log(seed)
-        //console.log(hdkey.fromMasterSeed)
-        //let hdkey = HDKey.fromMasterSeed(seed);
-        // Create a BIP32 factory
         const bip32Factory = BIP32Factory(ecc);
         let seedU = new Uint8Array(seed);
         let node = bip32Factory.fromSeed(seedU);
-        //let derivedNode: BIP32Interface =  await node.derivePath("m/44'/60'/0'/0/0");
-        //console.log((Buffer.from(derivedNode.privateKey as Uint8Array)).toString('hex'))
         let privateKeys = [];
         for (let i = 0; i < 10; i++) {
             const derivednode = node.derivePath("m/44'/60'/0'/0/" + i);
             const privateKey = (Buffer.from(derivednode.privateKey)).toString('hex');
-            //const publicKey = ecc.publicKeyCreate(privateKeyBuffer);
-            //console.log(privateKey)
-            //let key: any = hdwallet.derivePath("m/44'/60'/0'/0/" + i).getWallet() //hdkey.derive("m/44'/60'/0'/0/" + i.toString());
-            //key = key.getPrivateKey();
             privateKeys.push("0x" + privateKey); //"0x" + key.privateKey.toString('hex')
-            //this.publicKeys.push(d);   
             this.publicKeys.push("0x" + (Buffer.from(derivednode.publicKey)).toString('hex'));
         }
-        //console.log(privateKeys)
         for (var n of this.networks) {
             let web3 = this.web3Instances[n].web3;
             for (let i = 0; i < privateKeys.length; i++) {
@@ -127,24 +108,7 @@ export class Web3Engine {
         for (var n of this.networks) {
             if (this.deployed[n] === undefined) {
                 continue;
-            } /*
-            if(this.contractFactoryVersion === 1){
-                for(var contract in this.contractFactory){
-                    if(this.deployed[n][contract] !== undefined){
-                    
-                        try{
-                            let contractInstance = this.contractFactory[contract] as TruffleContract;
-                            contractInstance.setProvider(this.web3Instances[n].web3.eth.currentProvider);
-                            contractInstance.setWallet(this.web3Instances[n].wallet);
-                        
-                            this.web3Instances[n].contracts[contract] = await contractInstance.at(this.deployed[n][contract].address);
-                        }catch{
-                            console.log(`Contract: ${contract} was not found on ${n} at ${this.deployed[n][contract]} v1`, red())
-                        }
-                    }
-                        
-                }
-            }*/
+            }
             if (this.contractFactoryVersion === 2) {
                 console.log(gray(), "Getting engine contracts");
                 let contractFactory = this.contractFactory(this.web3Instances[n].web3);
@@ -169,17 +133,15 @@ export class Web3Engine {
             this.deployed[network] = {};
         }
         this.deployed[network][name] = { address, block };
-        //console.log(this.deployed)
         if (!this.browser) {
             try {
                 fs?.writeFileSync(__dirname + "../web3-data/networks/DeployedContracts.json", JSON.stringify(this.deployed, null, 4));
-                fs?.writeFileSync(__dirname + "../../../web3-data/networks/DeployedContracts.json", JSON.stringify(this.deployed, null, 4));
+                fs?.writeFileSync("/home/stephensb/sb-labs/web3-data/networks/DeployedContracts.json", JSON.stringify(this.deployed, null, 4));
             }
             catch {
                 console.log(red(), "Couldn't write file");
             }
         }
-        //fs.writeFileSync("./webpage/src/modules/data/Deployed_Contracts.json", JSON.stringify(deployedContracts, null, 4));
     };
     addProvider = async (network, provider) => {
         this.web3Instances[network] = {
@@ -214,21 +176,10 @@ export class Web3Engine {
     };
     encrypt = async (publicKey, msg) => {
         return encrypt(publicKey, new Uint8Array(Buffer.from(msg)));
-        /*
-        let encrypted = await eccrypto.encrypt(Buffer.from("04" + publicKey.toString('hex'), "hex"), Buffer.from(msg))
-        console.log(green(), encrypted)
-        return encrypted as EncryptedMessage;*/
     };
     decrypt = async (account, encrypted_message) => {
         const privateKey = new Uint8Array(Buffer.from((this.defaultInstance?.wallet[account].privateKey)?.slice(2), "hex"));
         return decrypt(privateKey, encrypted_message);
-        /*
-        const wallet = this.defaultInstance?.wallet as Wallet;
-    
-        const decrypt = (await eccrypto.decrypt(Buffer.from(wallet[account].privateKey.slice(2), 'hex'), encrypted_message)).toString()
-
-        console.log(green(), decrypt)
-        return decrypt;*/
     };
     // deploy contract , params
     deploy = async (network, contract, args, tx_params) => {
@@ -243,38 +194,18 @@ export class Web3Engine {
         }
         try {
             let web3 = this.web3Instances[network].web3;
-            //let wallet = this.web3Instances[network].wallet;
             let deployed;
             let blockNumber = 0;
-            /*
-            if(this.contractFactoryVersion === 1){
-                let contractInstance = this.contractFactory[contract] as TruffleContract;
-            
-                contractInstance.setProvider(web3.eth.currentProvider);
-                contractInstance.setWallet(wallet);
-    
-                let gas = await contractInstance.new.estimateGas(...args, tx_params);
-                console.log(`${contract} deployment gas: ${gas}`, yellow())
-                
-                deployed = await contractInstance.new(...args, tx_params) as TruffleContract;
-
-                blockNumber = (await web3.eth.getTransactionReceipt(deployed.transactionHash)).blockNumber;
-            }*/
             if (this.contractFactoryVersion === 2) {
                 let contractInstance = this.contractFactory(web3)[contract];
-                const ether = await web3.eth.getBalance(tx_params.from);
-                //console.log(yellow(), `${tx_params.from} ether: ${ether}`)
-                //let gas = await contractInstance.deploy({arguments: args, data: contractInstance.options.data as string}).estimateGas();
                 let gas = await contractInstance.deploy({ arguments: args, data: contractInstance.options.data }).estimateGas(tx_params);
                 console.log(yellow(), `${contract} deployment gas: ${gas}`);
                 console.log();
                 tx_params.gas = gas;
                 let gasPrice = await web3.eth.getGasPrice();
                 tx_params.gasPrice = gasPrice;
-                //console.log(this.web3Instances)
                 console.log(yellow(), `Deploying ${contract}...`);
                 deployed = await contractInstance.deploy({ arguments: args, data: contractInstance.options.data }).send(tx_params).on("receipt", (receipt) => {
-                    //console.log(receipt)
                     blockNumber = receipt.blockNumber;
                 });
             }
@@ -363,4 +294,3 @@ export class Web3Engine {
         return result;
     }
 }
-//console.log("engine")

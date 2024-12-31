@@ -209,7 +209,7 @@ export class Web3Engine implements Engine{
         if(!this.browser){
             try{
                 fs?.writeFileSync(__dirname + "../web3-data/networks/DeployedContracts.json", JSON.stringify(this.deployed, null, 4));
-                fs?.writeFileSync(__dirname + "../../../web3-data/networks/DeployedContracts.json", JSON.stringify(this.deployed, null, 4));
+                fs?.writeFileSync("/home/stephensb/sb-labs/web3-data/networks/DeployedContracts.json", JSON.stringify(this.deployed, null, 4));
             }
             catch{
                 console.log(red(), "Couldn't write file")
