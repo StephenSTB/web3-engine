@@ -199,7 +199,7 @@ export class Web3Engine {
             let blockNumber = 0;
             if (this.contractFactoryVersion === 2) {
                 let contractInstance = this.contractFactory(web3)[contract];
-                console.log("here");
+                //console.log("here")
                 let gas = await contractInstance.deploy({ arguments: args }).estimateGas(tx_params);
                 console.log(yellow(), `${contract} deployment gas: ${gas}`);
                 tx_params.gas = gas;
@@ -290,7 +290,7 @@ export class Web3Engine {
         if (tx_params.gas === undefined) {
             tx_params.gas = await contractInstance.methods[method](...args).estimateGas({ from: tx_params.from, value: tx_params.value });
         }
-        result.gas = BigInt(tx_params.gas) * await this.defaultInstance?.web3.eth.getGasPrice();
+        result.gas = Number(BigInt(tx_params.gas)) * Number(BigInt(await this.web3Instances[network].web3.eth.getGasPrice()));
         result.success = true;
         return result;
     }
